@@ -1,24 +1,3 @@
-# Tokio-RPC
-
-An RPC framework for Rust base on tokio.
-
-[![Crates version][version-image]][version-url]
-[![Build Status][travis-image]][travis-url]
-[![Coverage Status][coveralls-image]][coveralls-url]
-[![Crates downloads][downloads-image]][downloads-url]
-[![Docs Status][docs-image]][docs-url]
-
-## Demo with protobuf
-
-https://github.com/iorust/tokio-rpc/blob/master/examples/protobuf.rs
-
-Run:
-
-```sh
-cargo run --example protobuf
-```
-
-```rust
 extern crate tokio_rpc;
 extern crate futures;
 extern crate tokio_core;
@@ -99,22 +78,15 @@ pub fn main() {
                               println!("CLIENT 1: {:?}", res);
                               client.call(vec![0, 1, 2])
                           })
+                .and_then(|res| {
+                              let res = parse_from_bytes::<rpcpb::Response>(res.as_slice());
+                              println!("CLIENT 2: {:?}", res);
+                              Ok(())
+                          })
+                .or_else(|err| {
+                             println!("CLIENT Err: {:?}", err);
+                             Ok(())
+                         })
         }))
         .unwrap();
 }
-```
-
-[version-image]: https://img.shields.io/crates/v/tokio-rpc.svg
-[version-url]: https://crates.io/crates/tokio-rpc
-
-[travis-image]: http://img.shields.io/travis/iorust/tokio-rpc.svg
-[travis-url]: https://travis-ci.org/iorust/tokio-rpc
-
-[coveralls-image]: https://coveralls.io/repos/github/iorust/tokio-rpc/badge.svg?branch=master
-[coveralls-url]: https://coveralls.io/github/iorust/tokio-rpc?branch=master
-
-[downloads-image]: https://img.shields.io/crates/d/tokio-rpc.svg
-[downloads-url]: https://crates.io/crates/tokio-rpc
-
-[docs-image]: https://docs.rs/tokio-rpc/badge.svg
-[docs-url]: https://docs.rs/tokio-rpc

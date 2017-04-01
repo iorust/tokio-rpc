@@ -1,0 +1,53 @@
+syntax = "proto3";
+package rpcpb;
+
+message CmdGetRequest {
+    bytes key     = 1;
+}
+
+message CmdGetResponse {
+    bytes result   = 1;
+    string error  = 2;
+}
+
+message CmdSetRequest {
+    bytes key     = 1;
+    bytes value   = 2;
+}
+
+message CmdSetResponse {
+    bool result   = 1;
+    string error  = 2;
+}
+
+message CmdPingRequest {
+    string message   = 1;
+}
+
+message CmdPingResponse {
+    string message   = 1;
+}
+
+enum MessageType {
+    CmdPing            = 0;
+    CmdGet             = 1;
+    CmdSet             = 2;
+}
+
+message Request {
+    MessageType             type                  = 1;
+    oneof body {
+        CmdPingRequest          cmd_ping_req          = 2;
+        CmdGetRequest           cmd_get_req           = 3;
+        CmdSetRequest           cmd_set_req           = 4;
+    }
+}
+
+message Response {
+    MessageType             type                  = 1;
+    oneof body {
+        CmdPingResponse         cmd_ping_res          = 2;
+        CmdGetResponse          cmd_get_res           = 3;
+        CmdSetResponse          cmd_set_res           = 4;
+    }
+}

@@ -1,0 +1,21 @@
+[package]
+name = "tokio-rpc"
+version = "0.1.0"
+authors = ["zensh <admin@zensh.com>"]
+description = "An RPC framework for Rust base on tokio."
+repository = "https://github.com/iorust/tokio-rpc"
+readme = "README.md"
+keywords = ["tokio", "rpc"]
+license = "MIT"
+
+[dependencies]
+futures = "0.1"
+tokio-io = "0.1"
+tokio-core = "0.1"
+tokio-proto = "0.1"
+tokio-service = "0.1"
+tokio-timer = "0.1"
+bytes = "0.4"
+
+[dev-dependencies]
+protobuf = "1.2"
