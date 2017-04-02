@@ -1,6 +1,9 @@
-//! A simple client and server implementation fo a multiplexed
+//! A simple client and server implementation for a multiplexed RPC.
 
 #![deny(warnings, missing_docs)]
+
+use std::{io, str};
+use std::net::SocketAddr;
 
 use futures::Future;
 use tokio_io::{AsyncRead, AsyncWrite};
@@ -12,27 +15,24 @@ use tokio_proto::multiplex::{RequestId, ServerProto, ClientProto, ClientService}
 use tokio_service::{Service, NewService};
 use bytes::{BytesMut, BufMut, BigEndian, ByteOrder};
 
-use std::{io, str};
-use std::net::SocketAddr;
-
 const MAGIC_VER: u8 = 42;
 const MAGIC_VER_VAL: u64 = 42 << 56;
 
-/// ProtoRPC
-struct ProtoRPC<T> {
+/// RPC
+struct RPC<T> {
     inner: T,
 }
 
 /// Client
 pub struct Client {
-    inner: ProtoRPC<ClientService<TcpStream, ProtoRPCProto>>,
+    inner: RPC<ClientService<TcpStream, RPCProto>>,
 }
 
-/// Our multiplexed protobuf message codec
-struct ProtoRPCCodec;
+/// RPCCodec is multiplexed codec
+struct RPCCodec;
 
 /// Protocol definition
-struct ProtoRPCProto;
+struct RPCProto;
 
 /// Start a server, listening for connections on `addr`.
 ///
@@ -43,10 +43,10 @@ struct ProtoRPCProto;
 pub fn serve<T>(addr: SocketAddr, new_service: T)
     where T: NewService<Request = Vec<u8>, Response = Vec<u8>, Error = io::Error> + Send + Sync + 'static
 {
-    TcpServer::new(ProtoRPCProto {}, addr).serve(ProtoRPC { inner: new_service });
+    TcpServer::new(RPCProto {}, addr).serve(RPC { inner: new_service });
 }
 
-impl<T> Service for ProtoRPC<T>
+impl<T> Service for RPC<T>
     where T: Service<Request = Vec<u8>, Response = Vec<u8>, Error = io::Error>,
           T::Future: 'static
 {
@@ -60,18 +60,18 @@ impl<T> Service for ProtoRPC<T>
     }
 }
 
-impl<T> NewService for ProtoRPC<T>
+impl<T> NewService for RPC<T>
     where T: NewService<Request = Vec<u8>, Response = Vec<u8>, Error = io::Error>,
           <T::Instance as Service>::Future: 'static
 {
     type Request = Vec<u8>;
     type Response = Vec<u8>;
     type Error = io::Error;
-    type Instance = ProtoRPC<T::Instance>;
+    type Instance = RPC<T::Instance>;
 
     fn new_service(&self) -> io::Result<Self::Instance> {
         let inner = try!(self.inner.new_service());
-        Ok(ProtoRPC { inner: inner })
+        Ok(RPC { inner: inner })
     }
 }
 
@@ -81,10 +81,10 @@ impl Client {
     pub fn connect(addr: &SocketAddr,
                    handle: &Handle)
                    -> Box<Future<Item = Client, Error = io::Error>> {
-        let ret = TcpClient::new(ProtoRPCProto)
+        let ret = TcpClient::new(RPCProto)
             .connect(addr, handle)
             .map(|client_service| {
-                     let s = ProtoRPC { inner: client_service };
+                     let s = RPC { inner: client_service };
                      Client { inner: s }
                  });
 
@@ -110,7 +110,7 @@ impl Service for Client {
 /// |  0b00101010, 42  |  0x00000000000001   | 0xffffffff, 4G - 1 |   message   |
 /// +------------------+---------------------+--------------------+-------------+
 ///
-impl Decoder for ProtoRPCCodec {
+impl Decoder for RPCCodec {
     type Item = (RequestId, Vec<u8>);
     type Error = io::Error;
 
@@ -121,7 +121,9 @@ impl Decoder for ProtoRPCCodec {
         }
         if buf[0] != MAGIC_VER {
             return Err(io::Error::new(io::ErrorKind::Other,
-                                      format!("invalid magic {}, must be {}", buf[8], MAGIC_VER)));
+                                      format!("invalid magic flag {}, must be {}",
+                                              buf[8],
+                                              MAGIC_VER)));
         }
 
         let payload_len = BigEndian::read_u32(&(buf.as_ref()[8..12])) as usize;
@@ -138,7 +140,7 @@ impl Decoder for ProtoRPCCodec {
     }
 }
 
-impl Encoder for ProtoRPCCodec {
+impl Encoder for RPCCodec {
     type Item = (RequestId, Vec<u8>);
     type Error = io::Error;
 
@@ -159,26 +161,26 @@ impl Encoder for ProtoRPCCodec {
     }
 }
 
-impl<T: AsyncRead + AsyncWrite + 'static> ServerProto<T> for ProtoRPCProto {
+impl<T: AsyncRead + AsyncWrite + 'static> ServerProto<T> for RPCProto {
     type Request = Vec<u8>;
     type Response = Vec<u8>;
 
-    type Transport = Framed<T, ProtoRPCCodec>;
+    type Transport = Framed<T, RPCCodec>;
     type BindTransport = Result<Self::Transport, io::Error>;
 
     fn bind_transport(&self, io: T) -> Self::BindTransport {
-        Ok(io.framed(ProtoRPCCodec))
+        Ok(io.framed(RPCCodec))
     }
 }
 
-impl<T: AsyncRead + AsyncWrite + 'static> ClientProto<T> for ProtoRPCProto {
+impl<T: AsyncRead + AsyncWrite + 'static> ClientProto<T> for RPCProto {
     type Request = Vec<u8>;
     type Response = Vec<u8>;
 
-    type Transport = Framed<T, ProtoRPCCodec>;
+    type Transport = Framed<T, RPCCodec>;
     type BindTransport = Result<Self::Transport, io::Error>;
 
     fn bind_transport(&self, io: T) -> Self::BindTransport {
-        Ok(io.framed(ProtoRPCCodec))
+        Ok(io.framed(RPCCodec))
     }
 }
