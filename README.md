@@ -8,14 +8,26 @@ An RPC framework for Rust base on tokio.
 [![Crates downloads][downloads-image]][downloads-url]
 [![Docs Status][docs-image]][docs-url]
 
-## Demo with protobuf
+## Frame Protocol
 
-https://github.com/iorust/tokio-rpc/blob/master/examples/protobuf.rs
+```
++-- MAGIC_VER: 1 --+--- request_id: 7 ---+-- payload_len: 4 --+-- payload --+
+|  0b00101010, 42  |  0b00000000000001   | 0xffffffff, 4G - 1 |   message   |
++------------------+---------------------+--------------------+-------------+
+```
+
+**The min frame size**:  1 + 7 + 4 = 12 bytes
+
+**The max frame size**:  1 + 7 + 4 + 0xffffffff = 4294967307 bytes
+
+## Demo RPC with protobuf
+
+https://github.com/iorust/tokio-rpc/blob/master/examples/protobuf_rpc.rs
 
 Run:
 
 ```sh
-cargo run --example protobuf
+cargo run --example protobuf_rpc
 ```
 
 ```rust
@@ -94,11 +106,15 @@ pub fn main() {
             req.set_cmd_ping_req(msg);
             let buf = req.write_to_bytes().unwrap();
             client.call(buf)
-                .and_then(move |res| {
+                .and_then(|res| {
                               let res = parse_from_bytes::<rpcpb::Response>(res.as_slice());
-                              println!("CLIENT 1: {:?}", res);
-                              client.call(vec![0, 1, 2])
+                              println!("CLIENT Res: {:?}", res);
+                              Ok(())
                           })
+                .or_else(|err| {
+                             println!("CLIENT Err: {:?}", err);
+                             Ok(())
+                         })
         }))
         .unwrap();
 }

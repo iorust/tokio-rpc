@@ -73,14 +73,9 @@ pub fn main() {
             req.set_cmd_ping_req(msg);
             let buf = req.write_to_bytes().unwrap();
             client.call(buf)
-                .and_then(move |res| {
-                              let res = parse_from_bytes::<rpcpb::Response>(res.as_slice());
-                              println!("CLIENT 1: {:?}", res);
-                              client.call(vec![0, 1, 2])
-                          })
                 .and_then(|res| {
                               let res = parse_from_bytes::<rpcpb::Response>(res.as_slice());
-                              println!("CLIENT 2: {:?}", res);
+                              println!("CLIENT Res: {:?}", res);
                               Ok(())
                           })
                 .or_else(|err| {

@@ -1,6 +1,6 @@
 [package]
 name = "tokio-rpc"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["zensh <admin@zensh.com>"]
 description = "An RPC framework for Rust base on tokio."
 repository = "https://github.com/iorust/tokio-rpc"
