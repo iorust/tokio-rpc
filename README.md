@@ -12,7 +12,7 @@ An RPC framework for Rust base on tokio.
 
 ```
 +-- MAGIC_VER: 1 --+--- request_id: 7 ---+-- payload_len: 4 --+-- payload --+
-|  0b00101010, 42  |  0b00000000000001   | 0xffffffff, 4G - 1 |   message   |
+|     0x2a, 42     |  0x00000000000001   | 0xffffffff, 4G - 1 |   message   |
 +------------------+---------------------+--------------------+-------------+
 ```
 
