@@ -15,8 +15,10 @@ use tokio_proto::multiplex::{RequestId, ServerProto, ClientProto, ClientService}
 use tokio_service::{Service, NewService};
 use bytes::{BytesMut, BufMut, BigEndian, ByteOrder};
 
-const MAGIC_VER: u8 = 42;
-const MAGIC_VER_VAL: u64 = 42 << 56;
+const MAGIC_MUX: u8 = 42; // 0b00101010, multiplexed RPC frame
+// const MAGIC_STR: u8 = 170; // 0b10101010, stream RPC frame, TODO
+const MAGIC_MUX_VAL: u64 = 42 << 56;
+// const MAGIC_STR_VAL: u64 = 170 << 56;
 
 /// RPC
 struct RPC<T> {
@@ -28,10 +30,10 @@ pub struct Client {
     inner: RPC<ClientService<TcpStream, RPCProto>>,
 }
 
-/// RPCCodec is multiplexed codec
+/// `RPCCodec` is multiplexed codec.
 struct RPCCodec;
 
-/// Protocol definition
+/// Protocol definition.
 struct RPCProto;
 
 /// Start a server, listening for connections on `addr`.
@@ -106,9 +108,9 @@ impl Service for Client {
 /// Implementation of the multiplexed protobuf protocol.
 /// # An example frame:
 ///
-/// +-- MAGIC_VER: 1 --+--- request_id: 7 ---+-- payload_len: 4 --+-- payload --+
-/// |     0x2a, 42     |  0x00000000000001   | 0xffffffff, 4G - 1 |   message   |
-/// +------------------+---------------------+--------------------+-------------+
+/// +- `MAGIC_MUX`: 1 -+--- `request_id`: 7 ---+-- `payload_len`: 4 --+-- payload --+
+/// |     0x2a, 42         |  0x00000000000001   | 0xffffffff, 4G - 1 |   message   |
+/// +----------------------+---------------------+--------------------+-------------+
 ///
 impl Decoder for RPCCodec {
     type Item = (RequestId, Vec<u8>);
@@ -119,11 +121,11 @@ impl Decoder for RPCCodec {
         if buf_len < 12 {
             return Ok(None);
         }
-        if buf[0] != MAGIC_VER {
+        if buf[0] != MAGIC_MUX {
             return Err(io::Error::new(io::ErrorKind::Other,
                                       format!("invalid magic flag {}, must be {}",
                                               buf[8],
-                                              MAGIC_VER)));
+                                              MAGIC_MUX)));
         }
 
         let payload_len = BigEndian::read_u32(&(buf.as_ref()[8..12])) as usize;
@@ -133,7 +135,7 @@ impl Decoder for RPCCodec {
         }
 
         let mut data = buf.split_to(data_len);
-        data[0] = 0; // remove MAGIC_VER
+        data[0] = 0; // remove MAGIC_MUX
         let request_id = BigEndian::read_u64(&data[0..8]);
         data.split_to(12);
         Ok(Some((request_id as RequestId, data.to_vec())))
@@ -151,10 +153,10 @@ impl Encoder for RPCCodec {
         buf.reserve(len); // Reserve enough space for the frame
 
         let id = request_id as u64;
-        if id & MAGIC_VER_VAL != 0 {
+        if id & MAGIC_MUX_VAL != 0 {
             return Err(io::Error::new(io::ErrorKind::Other, format!("invalid request_id {}", id)));
         }
-        buf.put_u64::<BigEndian>(id | MAGIC_VER_VAL);
+        buf.put_u64::<BigEndian>(id | MAGIC_MUX_VAL);
         buf.put_u32::<BigEndian>(payload_len as u32);
         buf.put_slice(msg.as_slice());
         Ok(())
